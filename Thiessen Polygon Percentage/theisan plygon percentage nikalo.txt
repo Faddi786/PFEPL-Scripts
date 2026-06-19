@@ -1,0 +1,33 @@
+Sub CalculateStationPercentage()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets("Sheet1") ' Change to your sheet name if different
+    
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    
+    Dim i As Long
+    Dim currentSubBasin As String
+    Dim totalArea As Double
+    
+    ' Start from row 2, assuming headers in row 1
+    For i = 2 To lastRow
+        ' Check if Sub Basin column (B) is not empty => new sub basin group starts
+        If ws.Cells(i, 2).MergeCells Then
+            If ws.Cells(i, 2).MergeArea.Cells(1, 1).Value <> "" Then
+                currentSubBasin = ws.Cells(i, 2).MergeArea.Cells(1, 1).Value
+                totalArea = ws.Cells(i, 5).MergeArea.Cells(1, 1).Value ' Column E = Total Area
+            End If
+        ElseIf ws.Cells(i, 2).Value <> "" Then
+            currentSubBasin = ws.Cells(i, 2).Value
+            totalArea = ws.Cells(i, 5).Value
+        End If
+        
+        ' Only calculate if Station Area exists and totalArea is greater than 0
+        If ws.Cells(i, 4).Value <> "" And totalArea > 0 Then
+            ws.Cells(i, 6).Value = ws.Cells(i, 4).Value / totalArea
+            ws.Cells(i, 6).NumberFormat = "0.00%"
+        End If
+    Next i
+
+    MsgBox "Percentage calculation completed!", vbInformation
+End Sub
