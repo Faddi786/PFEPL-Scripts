@@ -1,0 +1,19 @@
+{
+  "sections": [
+    {
+      "position": "before",
+      "table": "Table_1",
+      "text": "Part 1: Introduction"
+    },
+    {
+      "position": "before",
+      "table": "Table_3",
+      "text": "Part 2: Observations"
+    },
+    {
+      "position": "after",
+      "table": "Table_5",
+      "text": "Part 3: Conclusions"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+Sub Step4_Part_1()
+
+    Dim wb As Workbook
+    Dim ws As Worksheet, logWs As Worksheet
+    Dim fontSize As Long, logRow As Long
+    Dim vBreaks As Long
+    Dim prevView As XlWindowView
+
+    Set wb = ActiveWorkbook   ' MUST be output.xlsx
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    '============================
+    ' 1. SETUP LOG SHEET
+    '============================
+    On Error Resume Next
+    Set logWs = wb.Worksheets("Optimization_Log")
+    On Error GoTo 0
+
+    If logWs Is Nothing Then
+        Set logWs = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
+        logWs.Name = "Optimization_Log"
+    Else
+        logWs.Cells.Clear
+    End If
+
+    logWs.Range("A1:C1").Value = Array("Sheet Name", "Final Font Size", "Pages Wide")
+    logWs.Range("A1:C1").Font.Bold = True
+    logRow = 2
+
+    '============================
+    ' 2. PROCESS TABLE SHEETS
+    '============================
+    For Each ws In wb.Worksheets
+
+        If LCase(ws.Name) Like "table_*" Then
+
+            ws.Activate
+            prevView = ActiveWindow.View
+
+            ' ----- Page setup -----
+            With ws.PageSetup
+                .PaperSize = xlPaperA3
+                .Orientation = xlLandscape
+                .Zoom = 100
+                .FitToPagesWide = False
+                .FitToPagesTall = False
+            End With
+
+            fontSize = 11
+
+            Do
+                ws.Cells.Font.Size = fontSize
+                ws.Cells.EntireColumn.AutoFit
+                ws.Cells.EntireRow.AutoFit
+
+                ' Force Excel to calculate page breaks
+                ActiveWindow.View = xlPageBreakPreview
+                DoEvents
+
+                vBreaks = ws.VPageBreaks.Count
+
+                ' Restore view immediately
+                ActiveWindow.View = prevView
+
+                ' Stop conditions
+                If vBreaks = 0 Or fontSize <= 8 Then Exit Do
+
+                fontSize = fontSize - 1
+            Loop
+
+            ' ----- LOG RESULT -----
+            logWs.Cells(logRow, 1).Value = ws.Name
+            logWs.Cells(logRow, 2).Value = fontSize
+            logWs.Cells(logRow, 3).Value = vBreaks + 1   ' Pages wide
+            logRow = logRow + 1
+
+        End If
+
+    Next ws
+
+    logWs.Columns("A:C").AutoFit
+
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+End Sub
+
+
+
+Public Function GetLastUsedDataColumn(ws As Worksheet) As Long
+    Dim lastCol As Long
+
+    On Error Resume Next
+    lastCol = ws.Cells.Find( _
+        What:="*", _
+        LookIn:=xlValues, _
+        SearchOrder:=xlByColumns, _
+        SearchDirection:=xlPrevious _
+    ).Column
+    On Error GoTo 0
+
+    If lastCol = 0 Then lastCol = 1
+    GetLastUsedDataColumn = lastCol
+End Function
+
+Public Function GetUsablePageWidth(ws As Worksheet) As Double
+    Dim pageWidth As Double
+
+    With ws.PageSetup
+        If .Orientation <> xlLandscape Then
+            .Orientation = xlLandscape
+        End If
+
+        ' A4 Landscape width in points
+        ' A3 Landscape width in points
+        pageWidth = 1190.55
+        GetUsablePageWidth = pageWidth - .LeftMargin - .RightMargin
+    End With
+End Function

@@ -1,0 +1,145 @@
+Option Explicit
+
+' ===== CONFIG =====
+Private Const PYTHON_EXE As String = _
+"C:\Users\Swapnali\AppData\Local\Programs\Python\Python311\python.exe"
+' ===== FINAL OUTPUT CONFIG =====
+Private Const FINAL_OUTPUT_FOLDER As String = _
+"C:\Users\Swapnali\Desktop\Sakina Maam Work\Excel Data Extraction\Final Automated Scripts"   ' <-- CHANGE THIS PATH
+' ===============================
+' ==================
+
+Public Sub Run_Full_Report()
+
+    Dim root As String
+    root = ThisWorkbook.Path
+
+    If root = "" Then
+        MsgBox "Please save the controller workbook first.", vbCritical
+        Exit Sub
+    End If
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    LogMsg "STARTING FULL REPORT GENERATION"
+
+    ' ------------------
+    ' PYTHON PHASE
+    ' ------------------
+    RunOrFail root, "Step1.py"
+    LogMsg "COMPLETED: Step1.py"
+
+    RunOrFail root, "Step2.py"
+    LogMsg "COMPLETED: Step2.py"
+
+    RunOrFail root, "Step3.py"
+    LogMsg "COMPLETED: Step3.py"
+
+    ' ------------------
+    ' VBA STEP 4 PART 1
+    ' ------------------
+    LogMsg "STARTED: VBA Step4 Part 1 (Page width measurement)"
+
+    Workbooks.Open root & "\output.xlsx"
+    Step4_Part_1
+    ActiveWorkbook.Save
+    ActiveWorkbook.Close
+
+    LogMsg "COMPLETED: VBA Step4 Part 1"
+
+    ' ------------------
+    ' PYTHON STEP 4 PART 2
+    ' ------------------
+    RunOrFail root, "Step4Part2.py"
+    LogMsg "COMPLETED: Step4Part2.py"
+
+    ' ------------------
+    ' FINAL VBA STEPS
+    ' ------------------
+    LogMsg "STARTED: VBA Step5 (TOC & pagination)"
+
+    Workbooks.Open root & "\output_formatted.xlsx"
+    Step5
+
+    LogMsg "COMPLETED: VBA Step5"
+
+    LogMsg "STARTED: VBA Step6 (Cover & headers)"
+    Step6
+    LogMsg "COMPLETED: VBA Step6"
+
+    ActiveWorkbook.Save
+    ' ---- SAVE FINAL COPY ----
+    SaveFinalCopy ActiveWorkbook
+    ActiveWorkbook.Close
+
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+    LogMsg "? REPORT GENERATED SUCCESSFULLY"
+    MsgBox "Report generation completed successfully.", vbInformation
+
+End Sub
+
+Private Sub RunOrFail(root As String, scriptName As String)
+
+    Dim cmd As String
+    Dim rc As Long
+
+    LogMsg "STARTED: Python " & scriptName
+
+    cmd = "cmd /c cd /d """ & root & """ && " & _
+          """" & PYTHON_EXE & """ """ & scriptName & """"
+
+    rc = CreateObject("WScript.Shell").Run(cmd, 0, True)
+
+    If rc <> 0 Then
+        LogMsg "FAILED: Python " & scriptName
+        MsgBox "Python failed: " & scriptName, vbCritical
+        End
+    End If
+
+End Sub
+
+
+Private Sub LogMsg(msg As String)
+    Dim ws As Worksheet
+
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets("Run_Log")
+    On Error GoTo 0
+
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add
+        ws.Name = "Run_Log"
+        ws.Range("A1:B1").Value = Array("Time", "Message")
+        ws.Rows(1).Font.Bold = True
+    End If
+
+    With ws
+        .Cells(.Rows.Count, 1).End(xlUp).Offset(1, 0).Value = Now
+        .Cells(.Rows.Count, 2).End(xlUp).Offset(1, 0).Value = msg
+    End With
+End Sub
+
+Private Sub SaveFinalCopy(wb As Workbook)
+
+    Dim finalPath As String
+    Dim finalName As String
+
+    ' Ensure folder exists
+    If Dir(FINAL_OUTPUT_FOLDER, vbDirectory) = "" Then
+        MsgBox "Final output folder does not exist:" & vbCrLf & _
+               FINAL_OUTPUT_FOLDER, vbCritical
+        Exit Sub
+    End If
+
+    ' Build filename (timestamped to avoid overwrite)
+    finalName = "Final_Report_" & Format(Now, "yyyy-mm-dd_hhmmss") & ".xlsx"
+    finalPath = FINAL_OUTPUT_FOLDER & finalName
+
+    wb.SaveCopyAs finalPath
+
+    LogMsg "FINAL COPY SAVED: " & finalPath
+
+End Sub

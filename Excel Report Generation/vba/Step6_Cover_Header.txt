@@ -1,0 +1,103 @@
+Option Explicit
+
+'====================================================
+' CONFIGURATION
+'====================================================
+Const IMG_LEFT_HEADER  As String = "Image_1.png"
+Const IMG_RIGHT_HEADER As String = "Image_2.png"
+Const IMG_LEFT_FOOTER  As String = "Image_3.png"
+
+' Fit image inside existing margin (70%)
+Const IMAGE_FIT_RATIO As Double = 0.7
+
+'====================================================
+' ENTRY POINT
+'====================================================
+Sub Step6()
+
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim basePath As String
+    Dim headerHeight As Double
+    Dim footerHeight As Double
+
+    Set wb = ActiveWorkbook        ' MUST be output_formatted.xlsx
+    basePath = wb.Path & Application.PathSeparator
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+    Application.PrintCommunication = False
+
+    For Each ws In wb.Worksheets
+
+        If ws.Visible = xlSheetVisible Then
+
+            With ws.PageSetup
+
+                ' -------- Page setup --------
+                .PaperSize = xlPaperA3
+                .Orientation = xlLandscape
+                ' .Zoom = False
+                ' .FitToPagesWide = 1
+                ' .FitToPagesTall = False
+
+                ' -------- Calculate usable image space --------
+                headerHeight = .TopMargin * IMAGE_FIT_RATIO
+                footerHeight = .BottomMargin * IMAGE_FIT_RATIO
+
+                ' -------- Clear existing --------
+                .LeftHeader = ""
+                .CenterHeader = ""
+                .RightHeader = ""
+
+                .LeftFooter = ""
+                .CenterFooter = ""
+                .RightFooter = ""
+                
+                .CenterHorizontally = True
+                .CenterVertically = True
+
+                ' -------- Header Images --------
+                If FileExists(basePath & IMG_LEFT_HEADER) Then
+                    .LeftHeaderPicture.Filename = basePath & IMG_LEFT_HEADER
+                    .LeftHeaderPicture.Height = headerHeight
+                    .LeftHeader = "&G"
+                End If
+
+                If FileExists(basePath & IMG_RIGHT_HEADER) Then
+                    .RightHeaderPicture.Filename = basePath & IMG_RIGHT_HEADER
+                    .RightHeaderPicture.Height = headerHeight
+                    .RightHeader = "&G"
+                End If
+
+                ' -------- Footer Image --------
+                If FileExists(basePath & IMG_LEFT_FOOTER) Then
+                    .LeftFooterPicture.Filename = basePath & IMG_LEFT_FOOTER
+                    .LeftFooterPicture.Height = footerHeight
+                    .LeftFooter = "&G"
+                End If
+
+            End With
+
+        End If
+
+    Next ws
+
+    ' Force Page Layout View
+    wb.Worksheets(1).Activate
+    ActiveWindow.View = xlPageLayoutView
+
+    Application.PrintCommunication = True
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+    MsgBox "? Step 6 completed: Images fitted inside existing margins (A3)", vbInformation
+
+End Sub
+
+'====================================================
+' FILE EXISTS CHECK
+'====================================================
+Private Function FileExists(filePath As String) As Boolean
+    FileExists = (Dir(filePath) <> "")
+End Function

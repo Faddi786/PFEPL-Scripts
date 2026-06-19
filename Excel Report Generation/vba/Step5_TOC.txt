@@ -1,0 +1,278 @@
+Option Explicit
+
+' ========= TOC APPEARANCE SETTINGS =========
+Const TOC_FONT_NAME As String = "Calibri"
+Const TOC_FONT_SIZE As Double = 11
+Const TOC_DOT_CHAR As String = "."
+Const TOC_MIN_DOTS As Long = 5
+
+'====================================================
+' ENTRY POINT
+'====================================================
+Sub Step5()
+
+    Dim wb As Workbook
+    Dim toc As Worksheet
+    Dim ws As Worksheet
+    Dim r As Long
+    Dim globalPage As Long
+    Dim started As Boolean
+    Dim sheetPageCount As Long
+    Dim refSheet As Worksheet
+
+    Set wb = ActiveWorkbook
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    '------------------------------------------------
+    ' Find reference sheet for PageSetup (first SECTION_)
+    '------------------------------------------------
+    For Each ws In wb.Worksheets
+        If IsSectionSheet(ws) Then
+            Set refSheet = ws
+            Exit For
+        End If
+    Next ws
+
+    If refSheet Is Nothing Then
+        MsgBox "No SECTION_ sheet found. TOC cannot inherit layout.", vbCritical
+        GoTo Cleanup
+    End If
+
+    '------------------------------------------------
+    ' Prepare TOC sheet and clone PageSetup
+    '------------------------------------------------
+    Set toc = PrepareTOCSheet(wb, refSheet)
+
+    '------------------------------------------------
+    ' TOC HEADER
+    '------------------------------------------------
+    toc.Cells(2, 1).Value = "Contents"
+    FormatHeading toc.Cells(2, 1)
+
+    r = 3
+    globalPage = 1
+    started = False
+
+    '------------------------------------------------
+    ' CONTENTS
+    '------------------------------------------------
+    For Each ws In wb.Worksheets
+
+        If ws.Name = toc.Name Then GoTo NextSection
+
+        If IsSectionSheet(ws) And Not started Then
+            started = True
+            globalPage = 1
+        End If
+
+        If started Then
+            sheetPageCount = GetSheetPageCount(ws)
+            AssignPhysicalPageNumbers ws, globalPage
+
+            If IsSectionSheet(ws) Then
+                WriteTOCLine toc, r, GetSectionText(ws), globalPage
+                r = r + 1
+            End If
+
+            globalPage = globalPage + sheetPageCount
+        End If
+
+NextSection:
+    Next ws
+
+    '------------------------------------------------
+    ' LIST OF TABLES
+    '------------------------------------------------
+    r = r + 2
+    toc.Cells(r, 1).Value = "List of Tables"
+    FormatHeading toc.Cells(r, 1)
+    r = r + 1
+
+    Dim tableGlobalPage As Long
+    tableGlobalPage = 1
+    started = False
+
+    For Each ws In wb.Worksheets
+
+        If ws.Name = toc.Name Then GoTo NextTable
+
+        If IsSectionSheet(ws) And Not started Then
+            started = True
+            tableGlobalPage = 1
+        End If
+
+        If started Then
+            sheetPageCount = GetSheetPageCount(ws)
+
+            If IsTableSheet(ws) Then
+                WriteTOCLine toc, r, GetLastContentRowText(ws), _
+                             tableGlobalPage + sheetPageCount - 1
+                r = r + 1
+            End If
+
+            tableGlobalPage = tableGlobalPage + sheetPageCount
+        End If
+
+NextTable:
+    Next ws
+
+    '------------------------------------------------
+    ' Final formatting
+    '------------------------------------------------
+    With toc
+        .Columns("A").ColumnWidth = 95
+        .Columns("B").ColumnWidth = 10
+        .Columns("B").HorizontalAlignment = xlRight
+    End With
+
+Cleanup:
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+End Sub
+
+
+Function PrepareTOCSheet(wb As Workbook, refSheet As Worksheet) As Worksheet
+
+    Dim ws As Worksheet
+
+    On Error Resume Next
+    Set ws = wb.Worksheets("Table_Of_Contents")
+    On Error GoTo 0
+
+    If ws Is Nothing Then
+        Set ws = wb.Worksheets.Add(Before:=wb.Worksheets(1))
+        ws.Name = "Table_Of_Contents"
+    Else
+        ws.Cells.Clear
+    End If
+
+    ' Clone PageSetup from reference sheet
+    With ws.PageSetup
+        .PaperSize = refSheet.PageSetup.PaperSize
+        .Orientation = refSheet.PageSetup.Orientation
+        .TopMargin = refSheet.PageSetup.TopMargin
+        .BottomMargin = refSheet.PageSetup.BottomMargin
+        .LeftMargin = refSheet.PageSetup.LeftMargin
+        .RightMargin = refSheet.PageSetup.RightMargin
+        .HeaderMargin = refSheet.PageSetup.HeaderMargin
+        .FooterMargin = refSheet.PageSetup.FooterMargin
+        .CenterHorizontally = refSheet.PageSetup.CenterHorizontally
+        .CenterVertically = refSheet.PageSetup.CenterVertically
+        .Zoom = refSheet.PageSetup.Zoom
+        .FitToPagesWide = refSheet.PageSetup.FitToPagesWide
+        .FitToPagesTall = refSheet.PageSetup.FitToPagesTall
+    End With
+
+    Set PrepareTOCSheet = ws
+
+End Function
+
+
+Function GetSheetPageCount(ws As Worksheet) As Long
+
+    Dim prevView As XlWindowView
+
+    ws.Parent.Activate
+    ws.Activate
+
+    prevView = ActiveWindow.View
+    ActiveWindow.View = xlNormalView
+    DoEvents
+
+    On Error Resume Next
+    GetSheetPageCount = ws.PageSetup.Pages.Count
+    On Error GoTo 0
+
+    If GetSheetPageCount < 1 Then GetSheetPageCount = 1
+    ActiveWindow.View = prevView
+
+End Function
+
+
+Sub AssignPhysicalPageNumbers(ws As Worksheet, startNum As Long)
+
+    With ws.PageSetup
+        .FirstPageNumber = startNum
+        .RightFooter = "Page &P"
+        .CenterFooter = ""
+    End With
+
+End Sub
+
+
+Function IsSectionSheet(ws As Worksheet) As Boolean
+    IsSectionSheet = (UCase(Left(ws.Name, 8)) = "SECTION_")
+End Function
+
+Function IsTableSheet(ws As Worksheet) As Boolean
+    IsTableSheet = (UCase(Left(ws.Name, 6)) = "TABLE_")
+End Function
+
+
+
+Sub WriteTOCLine(toc As Worksheet, rowNum As Long, textVal As String, pageNum As Long)
+
+    Dim dots As String
+    Dim dotCount As Long
+
+    dotCount = Application.Max(TOC_MIN_DOTS, 110 - Len(textVal))
+    dots = String(dotCount, TOC_DOT_CHAR)
+
+    toc.Cells(rowNum, 1).Value = textVal & " " & dots
+    toc.Cells(rowNum, 2).Value = pageNum
+
+    FormatEntry toc.Cells(rowNum, 1), toc.Cells(rowNum, 2)
+
+End Sub
+
+Sub FormatHeading(c As Range)
+    With c.Font
+        .Name = TOC_FONT_NAME
+        .Size = TOC_FONT_SIZE + 2
+        .Bold = True
+    End With
+End Sub
+
+Sub FormatEntry(textCell As Range, pageCell As Range)
+    textCell.Font.Name = TOC_FONT_NAME
+    textCell.Font.Size = TOC_FONT_SIZE
+    pageCell.Font.Name = TOC_FONT_NAME
+    pageCell.Font.Size = TOC_FONT_SIZE
+End Sub
+
+
+Function GetSectionText(ws As Worksheet) As String
+    Dim c As Range
+    For Each c In ws.UsedRange.Cells
+        If Trim(c.Text) <> "" Then
+            GetSectionText = c.Text
+            Exit Function
+        End If
+    Next c
+    GetSectionText = ws.Name
+End Function
+
+Function GetLastContentRowText(ws As Worksheet) As String
+    Dim r As Long, c As Range
+
+    On Error Resume Next
+    r = ws.Cells.Find(What:="*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+    On Error GoTo 0
+
+    If r = 0 Then
+        GetLastContentRowText = ws.Name
+        Exit Function
+    End If
+
+    For Each c In ws.Rows(r).Cells
+        If Trim(c.Text) <> "" Then
+            GetLastContentRowText = c.Text
+            Exit Function
+        End If
+    Next c
+
+    GetLastContentRowText = ws.Name
+End Function
