@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DoSLR WebGIS — Visual System Atlas</title>
+<style>
+  :root {
+    --paper:#EEF1F5; --panel:#FFFFFF; --ink:#13213B; --ink2:#46546F;
+    --line:#CBD4E1; --line2:#E3E9F0; --accent:#D9542B; --accent2:#1F6F8B;
+    --mark-bg:#13213B; --shadow:0 1px 2px rgba(19,33,59,.06),0 8px 24px rgba(19,33,59,.06);
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+
+  /* ---------- header ---------- */
+  .masthead{position:relative;background:var(--ink);color:#fff;overflow:hidden;
+    padding:34px 22px 30px}
+  .masthead::before{content:"";position:absolute;inset:0;opacity:.20;
+    background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+    background-size:46px 46px;mask:radial-gradient(120% 90% at 80% -10%,#000,transparent 70%)}
+  .mast-inner{position:relative;max-width:1180px;margin:0 auto}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;
+    color:#9fb0c9;margin:0 0 12px}
+  .masthead h1{margin:0;font-size:clamp(26px,4.6vw,46px);font-weight:680;letter-spacing:-.02em;line-height:1.04}
+  .masthead h1 b{color:var(--accent);font-weight:680}
+  .sub{margin:12px 0 0;max-width:60ch;color:#c5d0e0;font-size:15px}
+  .ticker{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:18px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#8fa2bd}
+  .ticker span b{color:#dce4ef;font-weight:600}
+
+  /* ---------- sticky nav ---------- */
+  .nav{position:sticky;top:0;z-index:40;background:rgba(238,241,245,.86);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1180px;margin:0 auto;display:flex;gap:8px;overflow-x:auto;
+    padding:10px 22px;scrollbar-width:thin}
+  .chip{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+    font-size:13px;font-weight:560;color:var(--ink2);text-decoration:none;
+    padding:7px 13px 7px 7px;border:1px solid var(--line);border-radius:999px;background:#fff;
+    transition:border-color .15s,color .15s}
+  .chip-mark{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;
+    background:var(--ink);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600}
+  .chip:hover,.chip.active{color:var(--ink);border-color:var(--accent)}
+  .chip.active .chip-mark{background:var(--accent)}
+
+  /* ---------- layout ---------- */
+  main{max-width:1180px;margin:0 auto;padding:8px 22px 64px}
+  .part{padding-top:38px;scroll-margin-top:64px}
+  .part-head{display:flex;align-items:center;gap:14px;margin:0 0 18px;
+    padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .part-mark{display:grid;place-items:center;width:38px;height:38px;flex:none;
+    border:1.5px solid var(--accent);color:var(--accent);border-radius:7px;
+    font-family:var(--mono);font-weight:700;font-size:18px}
+  .part-title{margin:0;font-size:21px;font-weight:680;letter-spacing:-.01em}
+  .part-tag{margin:1px 0 0;font-size:13px;color:var(--ink2)}
+
+  .grid{display:grid;gap:18px;grid-template-columns:1fr}
+  @media(min-width:1000px){
+    .part#part-E .grid,.part#part-F .grid{grid-template-columns:1fr 1fr}
+  }
+
+  /* ---------- card ---------- */
+  .card{position:relative;margin:0;background:var(--panel);border:1px solid var(--line2);
+    border-radius:8px;box-shadow:var(--shadow);overflow:hidden;cursor:zoom-in;
+    transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--line)}
+  .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* survey crosshair ticks — the signature */
+  .card::before,.card::after{content:"";position:absolute;width:9px;height:9px;
+    pointer-events:none;opacity:.55}
+  .card::before{top:10px;left:10px;border-top:1.5px solid var(--accent);border-left:1.5px solid var(--accent)}
+  .card::after{bottom:10px;right:10px;border-bottom:1.5px solid var(--accent);border-right:1.5px solid var(--accent)}
+  .card-head{padding:16px 18px 6px}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  .card-title{margin:5px 0 3px;font-size:17px;font-weight:660;letter-spacing:-.01em}
+  .caption{margin:0;font-size:13px;color:var(--ink2);max-width:70ch}
+  .stage{padding:12px 14px 16px;overflow:auto;display:flex;justify-content:center}
+  .stage .mermaid{width:100%;display:flex;justify-content:center}
+  .stage svg{max-width:100%;height:auto}
+  .expand{position:absolute;right:12px;bottom:11px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.08em;color:var(--ink2);background:var(--paper);border:1px solid var(--line2);
+    padding:3px 7px;border-radius:5px;opacity:0;transition:opacity .15s}
+  .card:hover .expand{opacity:.9}
+
+  /* ---------- modal ---------- */
+  .modal{position:fixed;inset:0;z-index:90;display:none;background:rgba(11,18,33,.74);
+    backdrop-filter:blur(3px)}
+  .modal.open{display:flex;flex-direction:column}
+  .modal-bar{display:flex;align-items:center;gap:12px;padding:12px 18px;color:#fff;
+    font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+  .modal-bar .mt{flex:1;color:#dbe3ef;text-transform:uppercase;letter-spacing:.16em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mbtn{appearance:none;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);
+    color:#fff;width:34px;height:30px;border-radius:6px;font-size:16px;cursor:pointer;
+    display:grid;place-items:center}
+  .mbtn:hover{background:rgba(255,255,255,.16)}
+  .mbtn.close{font-size:18px}
+  .modal-body{flex:1;overflow:auto;padding:8px 20px 26px}
+  .modal-body .zoomwrap{transform-origin:top center;transition:transform .12s ease}
+  .modal-body svg{height:auto;display:block;margin:0 auto;background:#fff;border-radius:8px;
+    padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+
+  footer{max-width:1180px;margin:0 auto;padding:22px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--ink2)}
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto} *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="mast-inner">
+      <p class="kicker">RFP M-13/1237/2025 · DoSLR Puducherry</p>
+      <h1>WebGIS Platform &amp; Field Integration<br><b>Visual System Atlas</b></h1>
+      <p class="sub">The entire Module&nbsp;2 + Module&nbsp;3 workload at a glance — context, database, data flow, workflows, lifecycles and end-to-end sequences. Click any diagram to enlarge.</p>
+      <div class="ticker">
+        <span><b>22</b> diagrams</span>
+        <span><b>28</b> tables</span>
+        <span><b>6</b> views</span>
+        <span><b>Open-source</b> stack</span>
+        <span><b>EPSG:4326</b> storage</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav"><div class="nav-inner"><a class="chip" href="#part-A"><span class="chip-mark">A</span>System</a><a class="chip" href="#part-B"><span class="chip-mark">B</span>Database</a><a class="chip" href="#part-C"><span class="chip-mark">C</span>Data Flow</a><a class="chip" href="#part-D"><span class="chip-mark">D</span>Workflows</a><a class="chip" href="#part-E"><span class="chip-mark">E</span>Lifecycle</a><a class="chip" href="#part-F"><span class="chip-mark">F</span>Sequence</a></div></nav>
+
+  <main>
+  <section id="part-A" class="part">
+    <header class="part-head">
+      <span class="part-mark">A</span>
+      <div>
+        <h2 class="part-title">System</h2>
+        <p class="part-tag">How the whole thing fits together</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="System Context">
+        <figcaption class="card-head">
+          <span class="eyebrow">Context</span>
+          <h3 class="card-title">System Context</h3>
+          <p class="caption">Every actor and external system that touches the platform.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart LR
+    citizen["Citizen / Public"]
+    officer["DoSLR Officer&lt;br/&gt;Inspector / Surveyor"]
+    field["Field Officer&lt;br/&gt;(Android app)"]
+    nilamagal["Nilamagal / RoR&lt;br/&gt;+ Collabland"]
+    agristack["AgriStack&lt;br/&gt;Farmer Registry + DCS"]
+    ulpin["National ULPIN&lt;br/&gt;Service"]
+    digilocker["DigiLocker"]
+
+    system((("DoSLR WebGIS&lt;br/&gt;Platform")))
+
+    citizen --&gt;|"search, view public map"| system
+    system --&gt;|"parcel map, certified extract"| citizen
+    officer --&gt;|"edit, mutate, georeference, analytics"| system
+    system --&gt;|"full attributes, dashboards, reports"| officer
+    field --&gt;|"DGPS / GNSS points, verification"| system
+    system --&gt;|"assigned village map (read-only)"| field
+    nilamagal &lt;--&gt;|"bidirectional mutation sync"| system
+    agristack &lt;--&gt;|"Farmer ID to parcel, crop survey"| system
+    ulpin &lt;--&gt;|"ULPIN lookup / resolution"| system
+    digilocker &lt;--&gt;|"citizen auth + extract issuance"| system
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Container View">
+        <figcaption class="card-head">
+          <span class="eyebrow">Architecture</span>
+          <h3 class="card-title">Container View</h3>
+          <p class="caption">The runnable pieces and the open-source tool behind each.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TB
+    subgraph clients["Clients"]
+        web["Web Portal&lt;br/&gt;React + OpenLayers"]
+        mob["Android Field App&lt;br/&gt;Kotlin + MapLibre Native"]
+    end
+
+    subgraph edge["Edge / Security"]
+        cdn["CDN + WAF"]
+        kc["Keycloak&lt;br/&gt;Auth / RBAC / SSO / MFA"]
+    end
+
+    subgraph applayer["Application Layer"]
+        api["FastAPI Backend&lt;br/&gt;business logic + mutation workflow"]
+        celery["Celery + Redis&lt;br/&gt;async jobs"]
+    end
+
+    subgraph gislayer["GIS Service Layer"]
+        geoserver["GeoServer&lt;br/&gt;WMS / WFS / WMTS + tile cache"]
+        pygeoapi["pygeoapi&lt;br/&gt;OGC API Features / Tiles"]
+        engine["Georeferencing Engine&lt;br/&gt;GDAL affine / poly / TPS"]
+    end
+
+    subgraph datalayer["Data Layer"]
+        pg[("PostgreSQL + PostGIS&lt;br/&gt;+ pgMemento history")]
+        obj[("Object Storage&lt;br/&gt;imagery / backups / exports")]
+    end
+
+    subgraph ext["External Systems"]
+        nila["Nilamagal / RoR"]
+        agri["AgriStack"]
+        ulpinx["ULPIN Service"]
+        dl["DigiLocker"]
+    end
+
+    web --&gt; cdn --&gt; kc --&gt; api
+    mob --&gt; cdn
+    web -. WMS/WFS/WMTS .-&gt; geoserver
+    web -. OGC API .-&gt; pygeoapi
+    mob -. GeoJSON sync .-&gt; api
+    api --&gt; pg
+    api --&gt; celery --&gt; pg
+    geoserver --&gt; pg
+    pygeoapi --&gt; pg
+    engine --&gt; pg
+    api --&gt; obj
+    api &lt;--&gt; nila
+    api &lt;--&gt; agri
+    api &lt;--&gt; ulpinx
+    kc &lt;--&gt; dl
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section>
+  <section id="part-B" class="part">
+    <header class="part-head">
+      <span class="part-mark">B</span>
+      <div>
+        <h2 class="part-title">Database</h2>
+        <p class="part-tag">The 28-table schema, entity by entity</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="All 28 Tables">
+        <figcaption class="card-head">
+          <span class="eyebrow">Schema Map</span>
+          <h3 class="card-title">All 28 Tables</h3>
+          <p class="caption">Every table grouped by schema, wired by foreign keys.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TB
+    subgraph geo["geo — Spatial Core"]
+        region["region"]
+        taluk["taluk"]
+        village["village"]
+        ward["ward_block"]
+        fmb["fmb_sheet"]
+        parcel["parcel"]
+    end
+
+    subgraph ror["ror — Record of Rights"]
+        rorrec["ror_record"]
+        owner["owner"]
+        tenant["tenant"]
+        enc["encumbrance"]
+    end
+
+    subgraph mut["mut — Mutation + ULPIN"]
+        mevent["mutation_event"]
+        mparcel["mutation_parcel"]
+        ureg["ulpin_registry"]
+        ulin["ulpin_lineage"]
+        legacy["legacy_id_map"]
+    end
+
+    subgraph agri["agri — AgriStack"]
+        flink["farmer_parcel_link"]
+        crop["crop_survey"]
+    end
+
+    subgraph gref["gref — Georeferencing"]
+        cpoint["control_point"]
+        batch["upload_batch"]
+        gjob["georef_job"]
+    end
+
+    subgraph iam["iam — Identity"]
+        appuser["app_user"]
+        perm["permission_matrix"]
+    end
+
+    subgraph aud["aud — Audit + Analytics"]
+        audit["audit_log"]
+        exp["export_log"]
+        qlog["query_log"]
+        anomaly["anomaly"]
+    end
+
+    subgraph appsch["app — App Services"]
+        extract["certified_extract"]
+        bookmark["map_bookmark"]
+    end
+
+    region --&gt; taluk --&gt; village --&gt; ward
+    village --&gt; fmb
+    village --&gt; parcel
+    fmb --&gt; parcel
+    parcel --&gt; rorrec
+    rorrec --&gt; owner
+    rorrec --&gt; tenant
+    rorrec --&gt; enc
+    parcel --&gt; mparcel
+    mevent --&gt; mparcel
+    parcel --&gt; ureg
+    ureg --&gt; ulin
+    ureg --&gt; legacy
+    mevent --&gt; ureg
+    parcel --&gt; flink
+    parcel --&gt; crop
+    village --&gt; cpoint
+    village --&gt; batch
+    village --&gt; gjob
+    parcel --&gt; anomaly
+    village --&gt; anomaly
+    parcel --&gt; extract
+    appuser -. actor .-&gt; audit
+    appuser -. actor .-&gt; mevent
+    appuser -. actor .-&gt; gjob
+    region -. scope .-&gt; appuser
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Spatial Core + RoR">
+        <figcaption class="card-head">
+          <span class="eyebrow">ERD</span>
+          <h3 class="card-title">Spatial Core + RoR</h3>
+          <p class="caption">Cadastral side and RoR side kept separate for variance checks.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">erDiagram
+    REGION ||--o{ TALUK : contains
+    TALUK ||--o{ VILLAGE : contains
+    VILLAGE ||--o{ WARD_BLOCK : contains
+    VILLAGE ||--o{ FMB_SHEET : holds
+    VILLAGE ||--o{ PARCEL : holds
+    FMB_SHEET ||--o{ PARCEL : "lineage source"
+    PARCEL ||--o{ ROR_RECORD : "described by"
+    ROR_RECORD ||--o{ OWNER : "owned by"
+    ROR_RECORD ||--o{ TENANT : "tenanted by"
+    ROR_RECORD ||--o{ ENCUMBRANCE : "encumbered by"
+
+    REGION {
+        int region_id PK
+        varchar code
+        varchar name
+        geometry geom
+    }
+    TALUK {
+        int taluk_id PK
+        int region_id FK
+        varchar name
+        geometry geom
+    }
+    VILLAGE {
+        int village_id PK
+        int taluk_id FK
+        varchar name
+        geometry geom
+    }
+    WARD_BLOCK {
+        int ward_id PK
+        int village_id FK
+        varchar kind
+        geometry geom
+    }
+    FMB_SHEET {
+        int fmb_sheet_id PK
+        int village_id FK
+        varchar sheet_no
+        varchar legibility
+        int survey_year
+        geometry outline_geom
+    }
+    PARCEL {
+        bigint parcel_id PK
+        char ulpin UK
+        varchar survey_no
+        varchar sub_div_no
+        int village_id FK
+        int fmb_sheet_id FK
+        enum classification
+        geometry geom
+        numeric computed_area_sqm
+        enum status
+        timestamptz valid_from
+        timestamptz valid_to
+    }
+    ROR_RECORD {
+        bigint ror_record_id PK
+        bigint parcel_id FK
+        varchar survey_no
+        varchar sub_div_no
+        enum classification
+        numeric ror_extent_sqm
+        numeric kist_amount
+        varchar patta_no
+        varchar source_system
+        varchar ror_txn_id
+    }
+    OWNER {
+        bigint owner_id PK
+        bigint ror_record_id FK
+        varchar owner_name
+        varchar owner_ref_key
+        numeric share_fraction
+        varchar share_text
+    }
+    TENANT {
+        bigint tenant_id PK
+        bigint ror_record_id FK
+        varchar tenant_name
+        numeric share_fraction
+    }
+    ENCUMBRANCE {
+        bigint encumbrance_id PK
+        bigint ror_record_id FK
+        varchar enc_type
+        numeric amount
+        date registered_date
+        boolean is_active
+    }
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Mutation + ULPIN">
+        <figcaption class="card-head">
+          <span class="eyebrow">ERD</span>
+          <h3 class="card-title">Mutation + ULPIN</h3>
+          <p class="caption">Parent/child parcels, approval workflow, ULPIN lineage.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">erDiagram
+    MUTATION_EVENT ||--o{ MUTATION_PARCEL : affects
+    PARCEL ||--o{ MUTATION_PARCEL : "involved in"
+    PARCEL ||--o{ ULPIN_REGISTRY : "identified by"
+    MUTATION_EVENT ||--o{ ULPIN_REGISTRY : "issues / retires"
+    ULPIN_REGISTRY ||--o{ ULPIN_LINEAGE : "parent of"
+    ULPIN_REGISTRY ||--o{ LEGACY_ID_MAP : "cross-refs"
+
+    MUTATION_EVENT {
+        bigint mutation_id PK
+        enum mutation_type
+        enum status
+        varchar ror_txn_id
+        geometry before_geom
+        geometry after_geom
+        jsonb before_attrs
+        jsonb after_attrs
+        uuid initiated_by
+        uuid approved_by
+        timestamptz approved_at
+        timestamptz synced_at
+    }
+    MUTATION_PARCEL {
+        bigint id PK
+        bigint mutation_id FK
+        bigint parcel_id FK
+        enum role
+    }
+    PARCEL {
+        bigint parcel_id PK
+        char ulpin UK
+        varchar survey_no
+        enum status
+    }
+    ULPIN_REGISTRY {
+        char ulpin PK
+        bigint parcel_id FK
+        enum status
+        timestamptz issued_at
+        timestamptz retired_at
+    }
+    ULPIN_LINEAGE {
+        bigint id PK
+        char parent_ulpin FK
+        char child_ulpin FK
+        enum relation
+        bigint mutation_id FK
+    }
+    LEGACY_ID_MAP {
+        bigint id PK
+        char ulpin FK
+        varchar legacy_system
+        varchar legacy_id
+    }
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Georef · Agri · IAM · Audit">
+        <figcaption class="card-head">
+          <span class="eyebrow">ERD</span>
+          <h3 class="card-title">Georef · Agri · IAM · Audit</h3>
+          <p class="caption">Field points, crop links, roles and the audit trail.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">erDiagram
+    VILLAGE ||--o{ CONTROL_POINT : "located in"
+    VILLAGE ||--o{ GEOREF_JOB : "scoped to"
+    VILLAGE ||--o{ UPLOAD_BATCH : "for"
+    PARCEL ||--o{ FARMER_PARCEL_LINK : "cultivated by"
+    PARCEL ||--o{ CROP_SURVEY : "crop on"
+    PARCEL ||--o{ CERTIFIED_EXTRACT : "extract of"
+    PARCEL ||--o{ ANOMALY : "flagged in"
+    APP_USER ||--o{ AUDIT_LOG : "actor of"
+    APP_USER ||--o{ EXPORT_LOG : "actor of"
+    APP_USER ||--o{ QUERY_LOG : "actor of"
+
+    CONTROL_POINT {
+        bigint control_point_id PK
+        varchar external_id
+        double latitude
+        double longitude
+        double easting
+        double northing
+        varchar datum
+        numeric accuracy
+        enum source
+        enum status
+        geometry geom
+        int village_id FK
+    }
+    UPLOAD_BATCH {
+        bigint batch_id PK
+        varchar filename
+        int village_id FK
+        int rows_accepted
+        int rows_rejected
+    }
+    GEOREF_JOB {
+        bigint georef_job_id PK
+        varchar scope
+        int village_id FK
+        enum transform_type
+        numeric rmse
+        enum status
+        numeric weight_dgps
+        numeric weight_drone
+        numeric weight_legacy
+        text justification
+        geometry before_geom
+        geometry after_geom
+    }
+    FARMER_PARCEL_LINK {
+        bigint id PK
+        bigint parcel_id FK
+        varchar farmer_id
+        varchar role
+        varchar consent_ref
+    }
+    CROP_SURVEY {
+        bigint id PK
+        bigint parcel_id FK
+        varchar season
+        varchar crop
+        date sown_date
+        varchar dcs_ref
+    }
+    APP_USER {
+        uuid keycloak_id PK
+        varchar username
+        enum role
+        int region_id FK
+        int taluk_id FK
+        int village_id FK
+    }
+    PERMISSION_MATRIX {
+        bigint id PK
+        enum role
+        varchar resource
+        boolean can_create
+        boolean can_read
+        boolean can_update
+        boolean can_delete
+        boolean can_export
+    }
+    AUDIT_LOG {
+        bigint audit_id PK
+        uuid actor
+        varchar action
+        varchar entity_type
+        varchar entity_id
+        geometry before_geom
+        geometry after_geom
+        timestamptz occurred_at
+    }
+    EXPORT_LOG {
+        bigint export_id PK
+        uuid actor
+        varchar format
+        geometry extent_geom
+        int record_count
+    }
+    QUERY_LOG {
+        bigint query_id PK
+        uuid actor
+        varchar query_type
+        jsonb parameters
+    }
+    ANOMALY {
+        bigint anomaly_id PK
+        enum anomaly_type
+        bigint parcel_id FK
+        int village_id FK
+        numeric variance_pct
+        enum variance_band
+        enum status
+    }
+    CERTIFIED_EXTRACT {
+        bigint extract_id PK
+        bigint parcel_id FK
+        char ulpin
+        uuid generated_by
+        varchar digilocker_uri
+        varchar status
+    }
+    PARCEL {
+        bigint parcel_id PK
+        char ulpin UK
+    }
+    VILLAGE {
+        int village_id PK
+        varchar name
+    }
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section>
+  <section id="part-C" class="part">
+    <header class="part-head">
+      <span class="part-mark">C</span>
+      <div>
+        <h2 class="part-title">Data Flow</h2>
+        <p class="part-tag">Where information travels</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="Whole Platform (L1)">
+        <figcaption class="card-head">
+          <span class="eyebrow">Data Flow</span>
+          <h3 class="card-title">Whole Platform (L1)</h3>
+          <p class="caption">Processes, data stores and what moves between them.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TB
+    citizen["Citizen"]
+    officer["Officer"]
+    field["Field Officer"]
+    nila["Nilamagal / RoR"]
+    agristack["AgriStack"]
+
+    p1(["P1 Map Serving&lt;br/&gt;WMS/WFS/WMTS"])
+    p2(["P2 Search &amp; Query"])
+    p3(["P3 Cadastral Editing"])
+    p4(["P4 Mutation Sync"])
+    p5(["P5 Georeferencing"])
+    p6(["P6 Anomaly Analytics"])
+    p7(["P7 AgriStack Integration"])
+    p8(["P8 Auth &amp; RBAC"])
+
+    geo[("geo — parcels / admin")]
+    rords[("ror — record of rights")]
+    mutds[("mut — mutations / ULPIN")]
+    grefds[("gref — control points / jobs")]
+    audds[("aud — audit / export / query")]
+    agrids[("agri — farmer / crop")]
+
+    citizen --&gt; p8
+    officer --&gt; p8
+    field --&gt; p8
+    p8 --&gt; p1 &amp; p2 &amp; p3 &amp; p5 &amp; p6
+
+    p1 --&gt; geo
+    p2 --&gt; geo
+    p2 --&gt; rords
+    p2 --&gt; audds
+    p3 --&gt; geo
+    p3 --&gt; audds
+    p4 &lt;--&gt; nila
+    p4 --&gt; rords
+    p4 --&gt; mutds
+    p4 --&gt; geo
+    field --&gt; p5
+    p5 --&gt; grefds
+    p5 --&gt; geo
+    p5 --&gt; audds
+    p6 --&gt; geo
+    p6 --&gt; rords
+    p6 --&gt; audds
+    p7 &lt;--&gt; agristack
+    p7 --&gt; agrids
+    p7 --&gt; geo
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Mutation Loop">
+        <figcaption class="card-head">
+          <span class="eyebrow">Data Flow</span>
+          <h3 class="card-title">Mutation Loop</h3>
+          <p class="caption">Nothing syncs back to Nilamagal until an officer approves.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart LR
+    subgraph external["Nilamagal / RoR + Collabland"]
+        rorsys["RoR textual record"]
+        collab["Collabland spatial record"]
+    end
+
+    subgraph platform["WebGIS Platform"]
+        cdc["Change-Data-Capture&lt;br/&gt;/ secure API listener"]
+        draft["Draft mutation&lt;br/&gt;(geometry + attributes)"]
+        approve{"DoSLR officer&lt;br/&gt;digital approval?"}
+        commit["Commit to cadastral layer&lt;br/&gt;+ pgMemento version"]
+        syncback["Sync back to&lt;br/&gt;Nilamagal + Collabland"]
+        audit[("audit_log&lt;br/&gt;before/after")]
+    end
+
+    rorsys --&gt;|"mutation event&lt;br/&gt;(subdiv/amalg/attr)"| cdc
+    cdc --&gt; draft
+    draft --&gt; approve
+    approve --&gt;|rejected| audit
+    approve --&gt;|approved| commit
+    commit --&gt; audit
+    commit --&gt; syncback
+    syncback --&gt; rorsys
+    syncback --&gt; collab
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Georeferencing">
+        <figcaption class="card-head">
+          <span class="eyebrow">Data Flow</span>
+          <h3 class="card-title">Georeferencing</h3>
+          <p class="caption">Three input surfaces, one GCP library, one GDAL engine.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TB
+    mobile["Mobile app&lt;br/&gt;DGPS/GNSS via BT/NTRIP"]
+    webman["Web manual entry&lt;br/&gt;+ drag-and-link"]
+    upload["CSV/Excel bulk upload"]
+
+    cplib[("control_point&lt;br/&gt;(single GCP library)")]
+    review{"Officer review&lt;br/&gt;accept / reject / flag"}
+    dryrun["GDAL dry-run transform&lt;br/&gt;affine / poly / spline / TPS"]
+    rmse{"RMSE within&lt;br/&gt;tolerance?"}
+    commitg["Commit bounded&lt;br/&gt;re-georeference"]
+    parcel[("geo.parcel&lt;br/&gt;cadastral layer")]
+    auditg[("audit_log + georef_job&lt;br/&gt;inputs, transform, RMSE")]
+
+    mobile --&gt; cplib
+    webman --&gt; cplib
+    upload --&gt; cplib
+    cplib --&gt; review
+    review --&gt;|accepted| dryrun
+    review --&gt;|rejected/flagged| auditg
+    dryrun --&gt; rmse
+    rmse --&gt;|no| review
+    rmse --&gt;|yes| commitg
+    commitg --&gt; parcel
+    commitg --&gt; auditg
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section>
+  <section id="part-D" class="part">
+    <header class="part-head">
+      <span class="part-mark">D</span>
+      <div>
+        <h2 class="part-title">Workflows</h2>
+        <p class="part-tag">The step-by-step processes</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="Online Mutation">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Online Mutation</h3>
+          <p class="caption">End-to-end: trigger, approve, commit, sync back.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    start(["Mutation triggered"]) --&gt; origin{"Origin?"}
+    origin --&gt;|"From RoR (Nilamagal)"| ingest["Ingest event via CDC/API"]
+    origin --&gt;|"From WebGIS (officer draws)"| drawedit["Officer edits geometry&lt;br/&gt;(split / merge / attribute)"]
+    ingest --&gt; draftm["Create draft mutation_event&lt;br/&gt;capture before/after"]
+    drawedit --&gt; draftm
+    draftm --&gt; ulpincalc["Compute ULPIN lifecycle&lt;br/&gt;retire parents / issue children"]
+    ulpincalc --&gt; submit["Submit for approval"]
+    submit --&gt; review{"DoSLR officer&lt;br/&gt;approves?"}
+    review --&gt;|No| reject["Status = rejected&lt;br/&gt;log reason"]
+    reject --&gt; done1(["End"])
+    review --&gt;|Yes| commit["Status = approved&lt;br/&gt;commit to cadastral layer"]
+    commit --&gt; version["pgMemento writes version&lt;br/&gt;+ immutable audit_log"]
+    version --&gt; sync["Sync back to Nilamagal + Collabland"]
+    sync --&gt; synced["Status = synced"]
+    synced --&gt; done2(["End"])
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Field Mobile (Offline)">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Field Mobile (Offline)</h3>
+          <p class="caption">Capture offline, queue, sync when connectivity returns.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    login(["Officer logs in&lt;br/&gt;(Keycloak token)"]) --&gt; download["Download assigned village&lt;br/&gt;map + orthomosaic (offline pack)"]
+    download --&gt; field["At field site"]
+    field --&gt; connect["Pair DGPS/GNSS rover&lt;br/&gt;(Bluetooth / NTRIP)"]
+    connect --&gt; capture["Capture control point&lt;br/&gt;lat/long/easting/northing/accuracy"]
+    capture --&gt; store["Save to local Room DB&lt;br/&gt;(works offline)"]
+    store --&gt; more{"More points?"}
+    more --&gt;|Yes| capture
+    more --&gt;|No| online{"Connectivity&lt;br/&gt;available?"}
+    online --&gt;|No| queue["WorkManager queues sync&lt;br/&gt;retry with backoff"]
+    queue --&gt; online
+    online --&gt;|Yes| push["Sync points to backend&lt;br/&gt;(source = mobile_dgps)"]
+    push --&gt; lib["Points enter control_point&lt;br/&gt;library, status = pending"]
+    lib --&gt; visible(["Visible to web reviewers&lt;br/&gt;in near real-time"])
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Search + RBAC">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Search + RBAC</h3>
+          <p class="caption">Same endpoint, role decides what comes back. No owner PII public.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    q(["User submits parcel search"]) --&gt; authn{"Authenticated?"}
+    authn --&gt;|No / anonymous| publictier["Public tier:&lt;br/&gt;geometry, Survey No., admin context"]
+    authn --&gt;|Yes| role{"Role permits&lt;br/&gt;owner data?"}
+    role --&gt;|"Citizen (authenticated)"| limited["Limited attributes&lt;br/&gt;still no owner PII"]
+    role --&gt;|"Officer / Inspector / Surveyor"| full["Full RoR attributes&lt;br/&gt;owner, tenant, encumbrance, mutation history"]
+    ownersearch{"Search was by&lt;br/&gt;owner name?"}
+    publictier --&gt; blockowner["Owner-name search blocked"]
+    limited --&gt; ownersearch
+    full --&gt; ownersearch
+    ownersearch --&gt;|Yes| logq["Log query to query_log&lt;br/&gt;(actor, params, count)"]
+    ownersearch --&gt;|No| result
+    logq --&gt; result(["Return results"])
+    blockowner --&gt; result
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Authentication">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Authentication</h3>
+          <p class="caption">Keycloak: citizen OTP/DigiLocker vs officer SSO + MFA.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    start(["User opens portal / app"]) --&gt; who{"Citizen or Officer?"}
+    who --&gt;|Citizen| cmethod{"Method?"}
+    cmethod --&gt;|DigiLocker| dl["OIDC broker to DigiLocker"]
+    cmethod --&gt;|Mobile OTP| otp["SMS OTP via Keycloak"]
+    dl --&gt; citizentoken["Issue citizen token&lt;br/&gt;(limited scope)"]
+    otp --&gt; citizentoken
+    who --&gt;|Officer| sso["SSO / username+password"]
+    sso --&gt; priv{"Privileged role?"}
+    priv --&gt;|Yes| mfa["Require MFA&lt;br/&gt;(TOTP / WebAuthn)"]
+    priv --&gt;|No| officertoken
+    mfa --&gt; officertoken["Issue officer token&lt;br/&gt;(role + jurisdiction scope)"]
+    citizentoken --&gt; guard["Every API call checks&lt;br/&gt;permission_matrix + scope"]
+    officertoken --&gt; guard
+    guard --&gt; done(["Access granted to allowed resources"])
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Anomaly Pipeline">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Anomaly Pipeline</h3>
+          <p class="caption">Variance bands and record-map checks feed the dashboard.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    trigger(["Scheduled analytics run&lt;br/&gt;(Celery job)"]) --&gt; loop["For each parcel in scope"]
+    loop --&gt; area["Compare ST_Area(geom)&lt;br/&gt;vs ror_extent_sqm"]
+    area --&gt; band{"Variance band?"}
+    band --&gt;|"&lt;= 1%"| green["Green"]
+    band --&gt;|"1-5%"| amber["Amber"]
+    band --&gt;|"&gt; 5%"| red["Red"]
+    loop --&gt; boundary["Overlay vector on orthomosaic&lt;br/&gt;flag boundary deviation"]
+    loop --&gt; checks["Run record-map checks:&lt;br/&gt;missing RoR, missing geometry,&lt;br/&gt;duplicate geom, ULPIN conflict,&lt;br/&gt;classification + ownership mismatch"]
+    green --&gt; persist[("Write to anomaly table&lt;br/&gt;type, band, highlight_geom")]
+    amber --&gt; persist
+    red --&gt; persist
+    boundary --&gt; persist
+    checks --&gt; persist
+    persist --&gt; dash["Dashboard: filter by&lt;br/&gt;region/taluk/village/band/type"]
+    dash --&gt; drill["Drill-down opens pre-zoomed map&lt;br/&gt;with issue highlighted"]
+    drill --&gt; export(["Export anomaly list PDF/Excel&lt;br/&gt;+ variance heat-map"])
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Certified Extract">
+        <figcaption class="card-head">
+          <span class="eyebrow">Workflow</span>
+          <h3 class="card-title">Certified Extract</h3>
+          <p class="caption">Signed parcel extract issued via DigiLocker.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">flowchart TD
+    req(["Authorised user requests&lt;br/&gt;certified extract for a parcel"]) --&gt; gather["Gather map snapshot&lt;br/&gt;+ RoR attributes + ULPIN"]
+    gather --&gt; render["Render extract (mapfish-print)&lt;br/&gt;map + attribute block"]
+    render --&gt; sign["Apply digital signature"]
+    sign --&gt; record[("Write certified_extract row&lt;br/&gt;signature_ref, generated_by")]
+    record --&gt; push{"Issue channel?"}
+    push --&gt;|DigiLocker| dl["Push to DigiLocker&lt;br/&gt;store digilocker_uri"]
+    push --&gt;|Direct| download["Signed PDF download"]
+    dl --&gt; done(["Citizen retrieves from DigiLocker"])
+    download --&gt; done
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section>
+  <section id="part-E" class="part">
+    <header class="part-head">
+      <span class="part-mark">E</span>
+      <div>
+        <h2 class="part-title">Lifecycle</h2>
+        <p class="part-tag">How records change state</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="Mutation Status">
+        <figcaption class="card-head">
+          <span class="eyebrow">Lifecycle</span>
+          <h3 class="card-title">Mutation Status</h3>
+          <p class="caption">draft to submitted to approved to synced.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">stateDiagram-v2
+    [*] --&gt; draft: created
+    draft --&gt; submitted: submit for approval
+    submitted --&gt; approved: DoSLR officer approves
+    submitted --&gt; rejected: officer rejects
+    approved --&gt; synced: pushed to Nilamagal + Collabland
+    rejected --&gt; [*]
+    synced --&gt; [*]
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Control Point">
+        <figcaption class="card-head">
+          <span class="eyebrow">Lifecycle</span>
+          <h3 class="card-title">Control Point</h3>
+          <p class="caption">pending to accepted/rejected/flagged.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">stateDiagram-v2
+    [*] --&gt; pending: ingested (mobile / web / upload)
+    pending --&gt; accepted: officer accepts
+    pending --&gt; rejected: officer rejects
+    pending --&gt; flagged: officer flags for query
+    flagged --&gt; accepted: resolved
+    flagged --&gt; rejected: resolved
+    accepted --&gt; [*]: promoted to GCP library
+    rejected --&gt; [*]
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Georef Job">
+        <figcaption class="card-head">
+          <span class="eyebrow">Lifecycle</span>
+          <h3 class="card-title">Georef Job</h3>
+          <p class="caption">dry-run to committed, with revert.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">stateDiagram-v2
+    [*] --&gt; dry_run: run transform preview
+    dry_run --&gt; committed: RMSE OK, officer commits
+    dry_run --&gt; failed: transform error
+    committed --&gt; reverted: officer reverts edit
+    failed --&gt; [*]
+    reverted --&gt; [*]
+    committed --&gt; [*]
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Parcel + ULPIN">
+        <figcaption class="card-head">
+          <span class="eyebrow">Lifecycle</span>
+          <h3 class="card-title">Parcel + ULPIN</h3>
+          <p class="caption">Active to retired through a mutation, lineage kept.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">stateDiagram-v2
+    direction LR
+    [*] --&gt; active: parcel created, ULPIN issued
+    active --&gt; retired: superseded by mutation
+    note right of retired
+        Sub-division: parent retired,
+        children get new ULPINs.
+        Amalgamation: parents retired,
+        one new ULPIN issued.
+        Lineage preserved in ulpin_lineage.
+    end note
+    retired --&gt; [*]
+    active --&gt; active: attribute-only mutation (same ULPIN)
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section>
+  <section id="part-F" class="part">
+    <header class="part-head">
+      <span class="part-mark">F</span>
+      <div>
+        <h2 class="part-title">Sequence</h2>
+        <p class="part-tag">End-to-end interactions over time</p>
+      </div>
+    </header>
+    <div class="grid">
+      <figure class="card" tabindex="0" aria-label="Field Georeferencing">
+        <figcaption class="card-head">
+          <span class="eyebrow">Sequence</span>
+          <h3 class="card-title">Field Georeferencing</h3>
+          <p class="caption">Rover capture to web review to committed edit.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">sequenceDiagram
+    actor FO as Field Officer
+    participant M as Mobile App
+    participant API as FastAPI Backend
+    participant DB as PostGIS
+    participant ENG as GDAL Engine
+    actor OFFR as Web Officer
+
+    FO-&gt;&gt;M: pair rover, capture DGPS point
+    M-&gt;&gt;M: store in local Room DB (offline)
+    M-&gt;&gt;API: sync point (source=mobile_dgps)
+    API-&gt;&gt;DB: insert control_point (status=pending)
+    OFFR-&gt;&gt;API: review pending points
+    API-&gt;&gt;DB: update status=accepted
+    OFFR-&gt;&gt;API: request dry-run georeference (village scope)
+    API-&gt;&gt;ENG: run TPS transform with weighted GCPs
+    ENG--&gt;&gt;API: transformed geometry + RMSE
+    API--&gt;&gt;OFFR: preview + RMSE readout
+    OFFR-&gt;&gt;API: commit
+    API-&gt;&gt;DB: update parcels + georef_job + audit_log
+    API--&gt;&gt;OFFR: committed (version saved)
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Mutation Sync-Back">
+        <figcaption class="card-head">
+          <span class="eyebrow">Sequence</span>
+          <h3 class="card-title">Mutation Sync-Back</h3>
+          <p class="caption">Sub-division flowing RoR to WebGIS and back.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">sequenceDiagram
+    participant RoR as Nilamagal / RoR
+    participant API as FastAPI Backend
+    participant DB as PostGIS
+    actor OFFR as DoSLR Officer
+    participant CL as Collabland
+
+    RoR-&gt;&gt;API: mutation event (sub-division)
+    API-&gt;&gt;DB: create mutation_event (status=draft)
+    API-&gt;&gt;DB: retire parent ULPIN, issue child ULPINs
+    API-&gt;&gt;OFFR: present for approval (before/after preview)
+    OFFR-&gt;&gt;API: approve
+    API-&gt;&gt;DB: commit geometry + attributes (status=approved)
+    API-&gt;&gt;DB: pgMemento version + immutable audit_log
+    API-&gt;&gt;RoR: sync updated textual record
+    API-&gt;&gt;CL: sync updated spatial record
+    API-&gt;&gt;DB: status=synced
+    API--&gt;&gt;OFFR: confirmation
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure>
+      <figure class="card" tabindex="0" aria-label="Citizen Search">
+        <figcaption class="card-head">
+          <span class="eyebrow">Sequence</span>
+          <h3 class="card-title">Citizen Search</h3>
+          <p class="caption">Public-tier search with no owner data exposed.</p>
+        </figcaption>
+        <div class="stage"><div class="mermaid">sequenceDiagram
+    actor C as Citizen
+    participant W as Web Portal
+    participant KC as Keycloak
+    participant API as FastAPI Backend
+    participant GS as GeoServer
+    participant DB as PostGIS
+
+    C-&gt;&gt;W: search by Survey No.
+    W-&gt;&gt;KC: anonymous / citizen token
+    KC--&gt;&gt;W: token (public scope)
+    W-&gt;&gt;API: search request + token
+    API-&gt;&gt;API: enforce permission_matrix (no owner PII)
+    API-&gt;&gt;DB: query parcel geometry + public attributes
+    DB--&gt;&gt;API: parcel result (no owner data)
+    API--&gt;&gt;W: public-tier result
+    W-&gt;&gt;GS: request WMS tiles for extent
+    GS--&gt;&gt;W: rendered map tiles
+    W--&gt;&gt;C: parcel shown on map (public attributes only)
+</div></div>
+        <span class="expand" aria-hidden="true">click to enlarge</span>
+      </figure></div>
+  </section></main>
+
+  <footer>All geometry stored in WGS&nbsp;84 (EPSG:4326); display reprojection in the service layer · history &amp; rollback via pgMemento · auth via Keycloak.</footer>
+
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Enlarged diagram">
+    <div class="modal-bar">
+      <span class="mt" id="modalTitle"></span>
+      <button class="mbtn" id="zoomOut" aria-label="Zoom out">&minus;</button>
+      <button class="mbtn" id="zoomReset" aria-label="Reset zoom" style="width:auto;padding:0 10px;font-size:12px;font-family:var(--mono)">FIT</button>
+      <button class="mbtn" id="zoomIn" aria-label="Zoom in">+</button>
+      <button class="mbtn close" id="modalClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"><div class="zoomwrap" id="zoomWrap"></div></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.3/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad:false,
+      securityLevel:"loose",
+      theme:"base",
+      fontFamily:"ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+      themeVariables:{
+        background:"transparent",
+        primaryColor:"#E9EEF6", primaryBorderColor:"#13213B", primaryTextColor:"#13213B",
+        lineColor:"#7C8BA6", secondaryColor:"#F4E6DC", tertiaryColor:"#FFFFFF",
+        mainBkg:"#E9EEF6", nodeBorder:"#33425E", clusterBkg:"#F7F9FC", clusterBorder:"#C2CCDC",
+        titleColor:"#13213B", edgeLabelBackground:"#EEF1F5",
+        actorBkg:"#E9EEF6", actorBorder:"#33425E", actorTextColor:"#13213B",
+        signalColor:"#46546F", signalTextColor:"#13213B",
+        labelBoxBkgColor:"#F4E6DC", labelBoxBorderColor:"#D9542B",
+        noteBkgColor:"#F4E6DC", noteBorderColor:"#D9542B", noteTextColor:"#13213B",
+        attributeBackgroundColorPeach:"#F4E6DC", attributeBackgroundColorOdd:"#FFFFFF",
+        attributeBackgroundColorEven:"#F2F5F9"
+      },
+      flowchart:{curve:"basis",useMaxWidth:true,htmlLabels:true,padding:14},
+      er:{useMaxWidth:true},
+      sequence:{useMaxWidth:true,actorMargin:42,boxMargin:8}
+    });
+
+    (async () => {
+      await mermaid.run({ querySelector:".mermaid" });
+
+      // ---- lightbox ----
+      const modal=document.getElementById("modal"),
+            wrap=document.getElementById("zoomWrap"),
+            mTitle=document.getElementById("modalTitle"),
+            body=document.getElementById("modalBody");
+      let zoom=1;
+      const applyZoom=()=>{wrap.style.transform="scale("+zoom+")";};
+      const fit=()=>{
+        const svg=wrap.querySelector("svg"); if(!svg)return;
+        zoom=1; applyZoom();
+      };
+      function open(card){
+        const svg=card.querySelector("svg"); if(!svg)return;
+        wrap.innerHTML=""; const clone=svg.cloneNode(true);
+        clone.removeAttribute("style"); clone.style.maxWidth="none";
+        wrap.appendChild(clone);
+        mTitle.textContent=card.querySelector(".card-title").textContent;
+        modal.classList.add("open"); document.body.style.overflow="hidden";
+        zoom=1; applyZoom(); body.scrollTop=0;
+      }
+      function close(){modal.classList.remove("open");document.body.style.overflow="";}
+      document.querySelectorAll(".card").forEach(c=>{
+        c.addEventListener("click",()=>open(c));
+        c.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open(c);}});
+      });
+      document.getElementById("modalClose").addEventListener("click",close);
+      modal.addEventListener("click",e=>{if(e.target===modal)close();});
+      document.getElementById("zoomIn").addEventListener("click",e=>{e.stopPropagation();zoom=Math.min(zoom+0.25,4);applyZoom();});
+      document.getElementById("zoomOut").addEventListener("click",e=>{e.stopPropagation();zoom=Math.max(zoom-0.25,0.5);applyZoom();});
+      document.getElementById("zoomReset").addEventListener("click",e=>{e.stopPropagation();fit();});
+      document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
+
+      // ---- scroll-spy for nav ----
+      const chips=[...document.querySelectorAll(".chip")];
+      const map=new Map(chips.map(ch=>[ch.getAttribute("href").slice(1),ch]));
+      const obs=new IntersectionObserver(es=>{
+        es.forEach(en=>{ if(en.isIntersecting){
+          chips.forEach(c=>c.classList.remove("active"));
+          const ch=map.get(en.target.id); if(ch)ch.classList.add("active");
+        }});
+      },{rootMargin:"-45% 0px -50% 0px",threshold:0});
+      document.querySelectorAll(".part").forEach(p=>obs.observe(p));
+    })();
+  </script>
+</body>
+</html>

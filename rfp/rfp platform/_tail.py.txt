@@ -1,0 +1,18 @@
+def main():
+    if not SOURCE.exists(): raise SystemExit(f"Source not found: {SOURCE}")
+    diags = extract(SOURCE.read_text(encoding="utf-8"))
+    if len(diags) != 22: print(f"Warning: expected 22 diagrams, found {len(diags)}")
+    for f in SECTION_DIRS.values(): f.mkdir(parents=True, exist_ok=True)
+    (ROOT/"shared").mkdir(exist_ok=True)
+    created = []
+    for d in diags:
+        steps = build_steps(d["mermaid"])
+        out = SECTION_DIRS[d["section_letter"]] / f"{d['slug']}.html"
+        out.write_text(PRES.format(title=html.escape(d["title"]), section_letter=html.escape(d["section_letter"]), section_title=html.escape(d["section_title"]), eyebrow=html.escape(d["eyebrow"]), caption=html.escape(d["caption"]), steps_json=json.dumps(steps, ensure_ascii=False)), encoding="utf-8")
+        created.append(str(out.relative_to(ROOT)))
+    render_index(diags); created.append("index.html")
+    print(f"Generated {len(diags)} presentations + index.html")
+    for p in created: print(" ", p)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@import "ol/ol.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #1a1a1a;
+  background: #f7f7f5;
+}
+
+/* Nilam Mobile — scroll works, scrollbar UI hidden */
+[data-nilam-mobile],
+[data-nilam-mobile] * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+[data-nilam-mobile] *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

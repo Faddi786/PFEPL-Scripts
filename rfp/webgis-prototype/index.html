@@ -1,0 +1,95 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DoSLR WebGIS</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">DoSLR WebGIS</div>
+      <nav class="menu-bar">
+        <div class="menu-item"><button class="menu-btn" type="button">View</button><div class="menu-drop">
+          <button data-action="viz-layers" type="button">Data visualisation layers</button>
+          <button data-action="viz-symbology" type="button">Scale-dependent symbology</button>
+          <button data-action="view-region" type="button">Switch region</button>
+          <button data-action="nav-home" type="button">Zoom home</button>
+        </div></div>
+        <div class="menu-item"><button class="menu-btn" type="button">Tools</button><div class="menu-drop">
+          <button data-action="search-parcel" type="button">Parcel search</button>
+          <button data-action="search-owner" type="button">Owner search</button>
+          <button data-action="nav-bookmark" type="button">Zoom to selection</button>
+          <button data-action="measure-distance" type="button">Measure distance</button>
+          <button data-action="measure-area" type="button">Measure area</button>
+          <button data-action="measure-bearing" type="button">Measure bearing</button>
+          <button data-action="measure-buffer" type="button">Buffer analysis</button>
+          <button data-action="spatial-query" type="button">Spatial query</button>
+          <button data-action="print-map" type="button">Print map</button>
+          <button data-action="export-data" type="button">Export GeoJSON</button>
+        </div></div>
+        <div class="menu-item"><button class="menu-btn" type="button">Edit</button><div class="menu-drop">
+          <button data-action="edit-vertex" type="button">Vertex edit</button>
+          <button data-action="edit-subdivide" type="button">Split parcel</button>
+          <button data-action="edit-amalgamate" type="button">Merge / amalgamate</button>
+          <button data-action="edit-rubber" type="button">Rubber sheet</button>
+          <button data-action="edit-version" type="button">Version snapshot</button>
+          <button data-action="edit-audit" type="button">Export audit log</button>
+        </div></div>
+        <div class="menu-item"><button class="menu-btn" type="button">Revenue</button><div class="menu-drop">
+          <button data-action="mut-online" type="button">Online mutation workflow</button>
+          <button data-action="mut-nilamagal" type="button">Nilamagal sync</button>
+          <button data-action="mut-collabland" type="button">CollabLand reference</button>
+          <button data-action="mut-extract" type="button">Certified extract</button>
+        </div></div>
+        <div class="menu-item"><button class="menu-btn" type="button">Integrations</button><div class="menu-drop">
+          <button data-action="agri-registry" type="button">AgriStack Farmer Registry</button>
+          <button data-action="agri-dcs" type="button">DCS plot crosswalk</button>
+          <button data-action="ulpin-lifecycle" type="button">ULPIN lifecycle</button>
+        </div></div>
+        <div class="menu-item"><button class="menu-btn" type="button">Admin</button><div class="menu-drop">
+          <button data-action="rbac-matrix" type="button">RBAC role matrix</button>
+          <button data-action="anomaly-dashboard" type="button">Anomaly analytics</button>
+          <button data-action="georef-workbench" type="button">Georef workbench</button>
+          <button data-action="clear-mode" type="button">Clear active tool</button>
+        </div></div>
+      </nav>
+    </header>
+
+    <main class="workbench">
+      <section class="map-wrap">
+        <div id="map"></div>
+        <div id="measure-hud" class="measure-hud">Mode: Select</div>
+      </section>
+      <aside class="layer-panel">
+        <div class="panel-head">Layers</div>
+        <div id="layer-panel-body" class="panel-body"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="ctx-menu" class="ctx-menu" hidden></div>
+
+  <div class="modal-overlay" id="panel-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="panel-title">Panel</h3>
+        <button class="modal-close" data-close="panel-modal" type="button">&times;</button>
+      </div>
+      <div class="modal-body" id="panel-body"></div>
+      <div class="modal-foot" id="panel-foot"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+  <script src="js/cadastral-osm.js"></script>
+  <script src="js/mock-data.js"></script>
+  <script src="js/map-engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
